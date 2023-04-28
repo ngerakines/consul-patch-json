@@ -1,0 +1,12 @@
+[
+  {
+    "op": "test",
+    "path": "/message",
+    "value": "hello world"
+  },
+  {
+    "op": "replace",
+    "path": "/message",
+    "value": "hello nick"
+  }
+]

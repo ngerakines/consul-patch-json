@@ -1,6 +1,6 @@
 [package]
 name = "consul-patch-json"
-version = "0.2.0"
+version = "0.3.0"
 description = "A tool to patch json values for consul keys"
 edition = "2021"
 authors = ["Nick Gerakines <nick.gerakines@gmail.com>"]

@@ -15,7 +15,6 @@ then
     exit
 fi
 
-
 if ! command -v jo &> /dev/null
 then
     echo "ERROR jo could not be found"
@@ -80,12 +79,40 @@ consul kv put integration/fifth '{"message":"hello world"}' > /dev/null
 
 [[ $(jo coffee=good | $1 integration/fifth --dry-run -- | jq '.' -c) == '{"coffee":"good","message":"hello world"}' ]] && echo "OK integration/fifth dry-run" || { echo "ERROR Consul key integration/fifth dry-run incorrect" ; exit 1; }
 
-jo coffee=good | $1 integration/fifth -- && echo "OK integration/fourth updated" || { echo "ERROR Consul key integration/fifth failed" ; exit 1; }
+jo coffee=good | $1 integration/fifth -- && echo "OK integration/fifth updated" || { echo "ERROR Consul key integration/fifth failed" ; exit 1; }
 
 [[ $(consul kv get integration/fifth | jq '.' -c) == '{"coffee":"good","message":"hello world"}' ]] && echo "OK integration/fifth verified" || { echo "ERROR Consul key integration/fifth not updated" ; exit 1; }
+
+# -- patch stdin
+
+consul kv put integration/sixth '{"message":"hello world"}' > /dev/null
+
+[[ $(cat integration/patch1.json | $1 integration/sixth --dry-run --json-patch -- | jq '.' -c) == '{"message":"hello nick"}' ]] && echo "OK integration/sixth dry-run" || { echo "ERROR Consul key integration/sixth dry-run incorrect" ; exit 1; }
+
+cat integration/patch1.json | $1 integration/sixth --json-patch -- && echo "OK integration/sixth updated" || { echo "ERROR Consul key integration/sixth failed" ; exit 1; }
+
+[[ $(consul kv get integration/sixth | jq '.' -c) == '{"message":"hello nick"}' ]] && echo "OK integration/sixth verified" || { echo "ERROR Consul key integration/sixth not updated" ; exit 1; }
+
+
+# -- multiple keys
+
+consul kv put integration/seventh-1 '{"message":"hello world"}' > /dev/null
+consul kv put integration/seventh-2 '{"message":"hello world"}' > /dev/null
+
+consul kv get integration/seventh-1 | grep -q '{"message":"hello world"}' || { echo "ERROR Consul key integration/seventh-1 incorrect" ; exit 1; }
+consul kv get integration/seventh-2 | grep -q '{"message":"hello world"}' || { echo "ERROR Consul key integration/seventh-2 incorrect" ; exit 1; }
+
+$1 integration/seventh-1 integration/seventh-2 --dry-run message='"hello nick"' | jq '.message' | grep -q '"hello nick"' && echo "OK integration/seventh dry-run" || { echo "ERROR Consul key integration/seventh dry-run incorrect" ; exit 1; }
+$1 integration/seventh-1 integration/seventh-2 message='"hello nick"' && echo "OK integration/seventh updated" || { echo "ERROR Consul key integration/seventh failed" ; exit 1; }
+
+consul kv get integration/seventh-1 | grep -q '{"message":"hello nick"}' && echo "OK integration/seventh-1 verified" || { echo "ERROR Consul key integration/seventh-1 not updated" ; exit 1; }
+consul kv get integration/seventh-2 | grep -q '{"message":"hello nick"}' && echo "OK integration/seventh-2 verified" || { echo "ERROR Consul key integration/seventh-2 not updated" ; exit 1; }
 
 # consul kv get integration/first
 # consul kv get integration/second
 # consul kv get integration/third
 # consul kv get integration/fourth
 # consul kv get integration/fifth
+# consul kv get integration/sixth
+# consul kv get integration/seventh-1
+# consul kv get integration/seventh-2

@@ -4,7 +4,7 @@ use consulrs::{
     client::{ConsulClient, ConsulClientSettingsBuilder},
     kv,
 };
-use json_patch::merge;
+use json_patch::{merge, patch, Patch};
 use serde_json::Value;
 use std::{env, str};
 
@@ -30,6 +30,13 @@ async fn main() -> Result<()> {
         false
     };
 
+    let json_patch = if args.contains(&"--json-patch".to_string()) {
+        args.retain(|arg| arg != "--json-patch");
+        true
+    } else {
+        false
+    };
+
     let mut keys: Vec<String> = vec![];
     let mut patches: Vec<(Option<String>, Value)> = Vec::new();
 
@@ -41,8 +48,8 @@ async fn main() -> Result<()> {
     }
     args.retain(|arg| arg.contains('=') || arg == "--");
 
-    if keys.len() != 1 {
-        return Err(anyhow!("only one key must be provided"));
+    if keys.is_empty() {
+        return Err(anyhow!("one or more keys must be specified"));
     }
 
     let read_stdin =
@@ -78,6 +85,9 @@ async fn main() -> Result<()> {
             for (patch_key, patch_value) in patches.iter() {
                 if patch_key.is_some() {
                     json_value[patch_key.clone().unwrap()] = patch_value.clone();
+                } else if json_patch {
+                    let p: Patch = serde_json::from_value(patch_value.clone())?;
+                    patch(&mut json_value, &p)?;
                 } else {
                     merge(&mut json_value, patch_value);
                 }
