@@ -15,6 +15,7 @@ keywords = ["consul"]
 anyhow = "1.0.70"
 base64 = "0.21.0"
 consulrs = "0.1.0"
+json-patch = "1.0.0"
 serde = "1.0.160"
 serde_json = "1.0.96"
 tokio = {version="1.28.0", features = ["full"]}

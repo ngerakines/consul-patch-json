@@ -4,6 +4,7 @@ use consulrs::{
     client::{ConsulClient, ConsulClientSettingsBuilder},
     kv,
 };
+use json_patch::merge;
 use serde_json::Value;
 use std::{env, str};
 
@@ -30,21 +31,30 @@ async fn main() -> Result<()> {
     };
 
     let mut keys: Vec<String> = vec![];
-    let mut patches: Vec<(String, Value)> = Vec::new();
+    let mut patches: Vec<(Option<String>, Value)> = Vec::new();
 
     for arg in args.iter() {
-        if !arg.contains('=') {
-            keys.push(arg.to_string());
+        if arg.contains('=') || arg == "--" {
+            continue;
         }
+        keys.push(arg.to_string());
     }
-    args.retain(|arg| arg.contains('='));
+    args.retain(|arg| arg.contains('=') || arg == "--");
 
     if keys.len() != 1 {
         return Err(anyhow!("only one key must be provided"));
     }
 
+    let read_stdin =
+        args.contains(&"--".to_string()) || args.iter().any(|arg| arg.ends_with("=--"));
+    let stdin_value = if read_stdin {
+        Some(stdin_input()?)
+    } else {
+        None
+    };
+
     for arg in args.iter() {
-        let patch = parse_patch(arg)?;
+        let patch = parse_patch(arg, stdin_value.clone())?;
         patches.push(patch);
     }
 
@@ -66,7 +76,11 @@ async fn main() -> Result<()> {
             }
 
             for (patch_key, patch_value) in patches.iter() {
-                json_value[patch_key] = patch_value.clone();
+                if patch_key.is_some() {
+                    json_value[patch_key.clone().unwrap()] = patch_value.clone();
+                } else {
+                    merge(&mut json_value, patch_value);
+                }
             }
 
             if dry_run {
@@ -86,12 +100,42 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn parse_patch(patch: &str) -> Result<(String, Value)> {
+fn parse_patch(patch: &str, stdin_value: Option<Value>) -> Result<(Option<String>, Value)> {
+    if patch == "--" {
+        return Ok((None, stdin_value.unwrap()));
+    }
     let (patch_key, patch_value) = patch
         .trim()
         .split_once('=')
         .ok_or_else(|| anyhow!("invalid patch: {}", patch))?;
+    if patch_value == "--" {
+        return Ok((Some(patch_key.to_string()), stdin_value.unwrap()));
+    }
     let json_value: Value = serde_json::from_str(patch_value)
         .map_err(|err| Error::msg(err).context(patch.to_string()))?;
-    Ok((patch_key.to_string(), json_value))
+    Ok((Some(patch_key.to_string()), json_value))
+}
+
+use std::io::{stdin, BufRead};
+
+fn stdin_input() -> Result<Value> {
+    let mut lines = Vec::new();
+    let input = stdin();
+    let mut stream = input.lock();
+
+    let mut line = String::new();
+
+    while let Ok(n) = stream.read_line(&mut line) {
+        if n == 0 {
+            break;
+        }
+
+        lines.push(line);
+        line = String::new();
+    }
+
+    let joined_lines = lines.join("");
+
+    serde_json::from_str::<Value>(&joined_lines)
+        .map_err(|err| Error::msg(err).context(format!("'{}'", joined_lines)))
 }
