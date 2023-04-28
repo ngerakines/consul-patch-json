@@ -22,6 +22,13 @@ async fn main() -> Result<()> {
     }
     args.remove(0);
 
+    let dry_run = if args.contains(&"--dry-run".to_string()) {
+        args.retain(|arg| arg != "--dry-run");
+        true
+    } else {
+        false
+    };
+
     let mut keys: Vec<String> = vec![];
     let mut patches: Vec<(String, Value)> = Vec::new();
 
@@ -43,7 +50,6 @@ async fn main() -> Result<()> {
 
     for key_name in keys {
         let key_meta = kv::read(&client, &key_name, None).await?;
-        println!("key: {:?}", key_meta);
 
         if key_meta.response.len() != 1 {
             return Err(anyhow!("consul response must contain exactly one key"));
@@ -63,6 +69,10 @@ async fn main() -> Result<()> {
                 json_value[patch_key] = patch_value.clone();
             }
 
+            if dry_run {
+                println!("{}", serde_json::to_string_pretty(&json_value)?);
+                continue;
+            }
             kv::set_json(
                 &client,
                 &key_name,
