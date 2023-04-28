@@ -18,3 +18,7 @@ consulrs = "0.1.0"
 serde = "1.0.160"
 serde_json = "1.0.96"
 tokio = {version="1.28.0", features = ["full"]}
+
+[profile.release]
+lto = true
+strip = true

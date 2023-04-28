@@ -1,16 +1,11 @@
 use anyhow::{anyhow, Error, Result};
 use consulrs::{
-    api::{
-        kv::{
-            requests::{SetKeyRequest},
-        },
-    },
+    api::kv::requests::SetKeyRequest,
     client::{ConsulClient, ConsulClientSettingsBuilder},
     kv,
 };
 use serde_json::Value;
-use std::env;
-use std::str;
+use std::{env, str};
 
 #[tokio::main]
 async fn main() -> Result<()> {
